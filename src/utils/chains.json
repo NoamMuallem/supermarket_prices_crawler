@@ -1,0 +1,17 @@
+{
+  "ויקטורי": {
+    "url": "http://matrixcatalog.co.il/NBCompetitionRegulations.aspx",
+    "hostType": "matrixcatalog"
+  },
+  "טיב טעם": {
+    "url": "https://url.publishedprices.co.il/login",
+    "signin": {
+      "username": "TivTaam"
+    },
+    "hostType": "cerberus"
+  },
+  "שופרסל": {
+    "url": "http://prices.shufersal.co.il/",
+    "hotType": "shufersal"
+  }
+}
