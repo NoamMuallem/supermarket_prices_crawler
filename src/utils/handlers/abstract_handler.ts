@@ -8,7 +8,7 @@ import xml2js from "xml2js";
  * @class Handler
  */
 export default class Handler {
-  browser: PromiseValue<ReturnType<typeof puppeteer.launch>>;
+  protected browser: PromiseValue<ReturnType<typeof puppeteer.launch>>;
 
   constructor(browser: PromiseValue<ReturnType<typeof puppeteer.launch>>) {
     this.browser = browser;
@@ -22,18 +22,22 @@ export default class Handler {
     throw new Error("Method 'getFullPrises()' must be implemented.");
   }
 
-  parseXML(xml: string) {
+  protected parseXML(xml: string) {
     return new Promise((resolve, reject) => {
-      xml2js.parseString(xml, { mergeAttrs: true }, (err, result) => {
-        if (err) {
-          reject(err);
+      xml2js.parseString(
+        xml,
+        { mergeAttrs: true, trim: true, explicitArray: true },
+        (err, result) => {
+          if (err) {
+            reject(err);
+          }
+          // `result` is a JavaScript object
+          // convert it to a JSON string
+          const json = JSON.stringify(result, null, 4);
+          // log JSON string
+          resolve(json);
         }
-        // `result` is a JavaScript object
-        // convert it to a JSON string
-        const json = JSON.stringify(result, null, 4);
-        // log JSON string
-        resolve(json);
-      });
+      );
     });
   }
 }

@@ -31,7 +31,7 @@ export default class CerberusHandler extends Handler {
     return await this.getFirstXMLInTable(page);
   }
 
-  getToHomescreen = async (
+  private getToHomescreen = async (
     page: PromiseValue<ReturnType<typeof this.browser.newPage>>
   ) => {
     page.on("request", (request) => request.continue());
@@ -46,7 +46,7 @@ export default class CerberusHandler extends Handler {
     await page.click("#login-button");
   };
 
-  insertToSearch = async (
+  private insertToSearch = async (
     page: PromiseValue<ReturnType<typeof this.browser.newPage>>,
     text: string
   ) => {
@@ -54,14 +54,14 @@ export default class CerberusHandler extends Handler {
     await page.type("input[type='search']", text);
   };
 
-  selectBiggestLimit = async (
+  private selectBiggestLimit = async (
     page: PromiseValue<ReturnType<typeof this.browser.newPage>>
   ) => {
     await page.waitForSelector("select");
     await page.select("select", "1000");
   };
 
-  getFirstXMLInTable = async (
+  private getFirstXMLInTable = async (
     page: PromiseValue<ReturnType<typeof this.browser.newPage>>
   ) => {
     setTimeout(async () => {
@@ -82,7 +82,7 @@ export default class CerberusHandler extends Handler {
     }, 1000);
   };
 
-  clickOnUnzip = async (
+  private clickOnUnzip = async (
     page: PromiseValue<ReturnType<typeof this.browser.newPage>>
   ) => {
     await page.waitForSelector("#unzip-btn > span.t");
