@@ -1,6 +1,7 @@
 import Handler from "./abstract_handler";
 import puppeteer from "puppeteer";
 import { PromiseValue } from "type-fest";
+import { getJsonFromGzDownloadLink } from "../../getJsonFromGzipDownloadLink";
 
 /**
  * CerberusHandler.
@@ -36,27 +37,27 @@ export default class CerberusHandler extends Handler {
     return json;
   }
 
-  //async getAllProductsInStore(
-  //  chainId: string,
-  //  subChainId: string
-  //): Promise<string> {
-  //  if (!this.page) {
-  //    this.page = await this.browser.newPage();
-  //  }
-  //  this.page = await this.browser.newPage();
-  //  await this.getToHomescreen(this.page);
-  //  const searchTerm = `PriceFull${chainId}-${subChainId}`;
-  //  this.clearSearch(this.page);
-  //  console.log("now searching for: ", searchTerm);
-  //  await this.insertToSearch(this.page, searchTerm);
-  //  await this.selectBiggestLimit(this.page);
-  //  await this.clickOnUnzip(this.page);
-  //  await new Promise((resolve) => setTimeout(resolve, 2000));
-  //  const json = await this.getFirstXMLInTable(this.page, false);
-  //  await this.page.close();
-  //  this.page = undefined;
-  //  return json;
-  //}
+  async getAllProductsInStore(
+    chainId: string,
+    subChainId: string
+  ): Promise<string> {
+    if (!this.page) {
+      this.page = await this.browser.newPage();
+    }
+    this.page = await this.browser.newPage();
+    await this.getToHomescreen(this.page);
+    const searchTerm = `PriceFull${chainId}-${subChainId}`;
+    this.clearSearch(this.page);
+    console.log("now searching for: ", searchTerm);
+    await this.insertToSearch(this.page, searchTerm);
+    await this.selectBiggestLimit(this.page);
+    await this.clickOnUnzip(this.page);
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    const json = await this.getFirstXMLInTable(this.page, false);
+    await this.page.close();
+    this.page = undefined;
+    return json;
+  }
 
   private getToHomescreen = async (
     page: PromiseValue<ReturnType<typeof this.browser.newPage>>
@@ -113,14 +114,16 @@ export default class CerberusHandler extends Handler {
         if (isInXMLForm) {
           await xmlPage.goto(newPage.toString(), { waitUntil: "load" });
           await new Promise((resolve) => setTimeout(resolve, 2000));
+          const xml = await xmlPage.evaluate(
+            // @ts-ignore: type element does have href on it!
+            () => document.querySelector("#folder0")!.innerText
+          );
+          const json = await this.parseXML(xml);
+          resolve(json);
+        } else {
+          getJsonFromGzDownloadLink(newPage.toString(), this.page!);
         }
-        const xml = await xmlPage.evaluate(
-          // @ts-ignore: type element does have href on it!
-          () => document.querySelector("#folder0")!.innerText
-        );
         xmlPage.close();
-        const json = await this.parseXML(xml);
-        resolve(json);
       }, 1000);
     });
   };
