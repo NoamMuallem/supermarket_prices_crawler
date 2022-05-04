@@ -11,6 +11,7 @@ import { PromiseValue } from "type-fest";
 export default class CerberusHandler extends Handler {
   username: string;
   password: string;
+  page: puppeteer.Page | undefined;
 
   constructor(
     username: string,
@@ -22,14 +23,40 @@ export default class CerberusHandler extends Handler {
     this.password = password;
   }
 
-  async getAllStores() {
-    const page = await this.browser.newPage();
-    await this.getToHomescreen(page);
-    await this.insertToSearch(page, "stores");
-    await this.selectBiggestLimit(page);
-    await this.clickOnUnzip(page);
-    return await this.getFirstXMLInTable(page);
+  async getAllStores(): Promise<string> {
+    this.page = await this.browser.newPage();
+    await this.getToHomescreen(this.page);
+    await this.insertToSearch(this.page, "stores");
+    await this.selectBiggestLimit(this.page);
+    await this.clickOnUnzip(this.page);
+    const json = await this.getFirstXMLInTable(this.page);
+    await this.page.goBack();
+    await this.page.close();
+    this.page = undefined;
+    return json;
   }
+
+  //async getAllProductsInStore(
+  //  chainId: string,
+  //  subChainId: string
+  //): Promise<string> {
+  //  if (!this.page) {
+  //    this.page = await this.browser.newPage();
+  //  }
+  //  this.page = await this.browser.newPage();
+  //  await this.getToHomescreen(this.page);
+  //  const searchTerm = `PriceFull${chainId}-${subChainId}`;
+  //  this.clearSearch(this.page);
+  //  console.log("now searching for: ", searchTerm);
+  //  await this.insertToSearch(this.page, searchTerm);
+  //  await this.selectBiggestLimit(this.page);
+  //  await this.clickOnUnzip(this.page);
+  //  await new Promise((resolve) => setTimeout(resolve, 2000));
+  //  const json = await this.getFirstXMLInTable(this.page, false);
+  //  await this.page.close();
+  //  this.page = undefined;
+  //  return json;
+  //}
 
   private getToHomescreen = async (
     page: PromiseValue<ReturnType<typeof this.browser.newPage>>
@@ -54,6 +81,14 @@ export default class CerberusHandler extends Handler {
     await page.type("input[type='search']", text);
   };
 
+  private clearSearch = async (
+    page: PromiseValue<ReturnType<typeof this.browser.newPage>>
+  ) => {
+    await page.waitForSelector("input[type='search']");
+    //@ts-ignore
+    await page.$eval("input[type='search']", (el: Element) => (el.value = ""));
+  };
+
   private selectBiggestLimit = async (
     page: PromiseValue<ReturnType<typeof this.browser.newPage>>
   ) => {
@@ -62,24 +97,32 @@ export default class CerberusHandler extends Handler {
   };
 
   private getFirstXMLInTable = async (
-    page: PromiseValue<ReturnType<typeof this.browser.newPage>>
-  ) => {
-    setTimeout(async () => {
-      await page.waitForSelector("td");
-      const newPage = await page.evaluate(() => {
-        // @ts-ignore: type element does have href on it!
-        return <HTMLAnchorElement>document.querySelectorAll("td > a")[0].href;
-      });
-      const xmlPage = await this.browser.newPage();
-      await xmlPage.goto(newPage.toString(), { waitUntil: "load" });
-      const xml = await xmlPage.evaluate(
-        // @ts-ignore: type element does have href on it!
-        () => document.querySelector("#folder0")!.innerText
-      );
-      xmlPage.close();
-      const json = await this.parseXML(xml);
-      console.log(json);
-    }, 1000);
+    page: PromiseValue<ReturnType<typeof this.browser.newPage>>,
+    isInXMLForm: boolean = true
+  ): Promise<string> => {
+    return new Promise((resolve) => {
+      setTimeout(async () => {
+        await page.waitForSelector("td");
+        const newPage = await page.evaluate(() => {
+          return <HTMLAnchorElement>(
+            // @ts-ignore: type element does have href on it!
+            document.querySelectorAll("td > a")[0].href
+          );
+        });
+        const xmlPage = await this.browser.newPage();
+        if (isInXMLForm) {
+          await xmlPage.goto(newPage.toString(), { waitUntil: "load" });
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
+        const xml = await xmlPage.evaluate(
+          // @ts-ignore: type element does have href on it!
+          () => document.querySelector("#folder0")!.innerText
+        );
+        xmlPage.close();
+        const json = await this.parseXML(xml);
+        resolve(json);
+      }, 1000);
+    });
   };
 
   private clickOnUnzip = async (

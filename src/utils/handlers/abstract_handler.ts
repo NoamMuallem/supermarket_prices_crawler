@@ -14,15 +14,15 @@ export default class Handler {
     this.browser = browser;
   }
 
-  async getAllStores() {
+  async getAllStores(): Promise<string> {
     throw new Error("Method 'say()' must be implemented.");
   }
 
-  async getFullPrises() {
+  async getFullPrises(): Promise<string> {
     throw new Error("Method 'getFullPrises()' must be implemented.");
   }
 
-  protected parseXML(xml: string) {
+  protected parseXML(xml: string): Promise<string> {
     return new Promise((resolve, reject) => {
       xml2js.parseString(
         xml,
@@ -33,7 +33,7 @@ export default class Handler {
           }
           // `result` is a JavaScript object
           // convert it to a JSON string
-          const json = JSON.stringify(result, null, 4);
+          const json = JSON.stringify(result, null, 0);
           // log JSON string
           resolve(json);
         }
