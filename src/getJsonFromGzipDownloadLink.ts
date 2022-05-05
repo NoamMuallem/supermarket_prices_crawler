@@ -51,7 +51,7 @@ async function downloadFile(
     createDirectoryIfNotExisting(directoryPath);
     await page.goto(url);
   } catch (e) {
-    console.log(e.toString())
+    console.log(e.toString());
   }
 }
 
