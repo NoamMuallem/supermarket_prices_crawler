@@ -31,11 +31,7 @@ export default class Handler {
           if (err) {
             reject(err);
           }
-          // `result` is a JavaScript object
-          // convert it to a JSON string
-          const json = JSON.stringify(result, null, 0);
-          // log JSON string
-          resolve(json);
+          resolve(result);
         }
       );
     });

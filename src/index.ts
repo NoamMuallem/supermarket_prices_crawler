@@ -6,12 +6,12 @@ const main = async () => {
   //set up puppeteer
   const browser = await ppt.launch({ headless: false });
   let cerebrusHandler = new CerberusHandler("HaziHinam", "", browser);
-  const storesString = await cerebrusHandler.getAllStores();
-  const storesJson = JSON.parse(storesString);
-  console.log(storesJson);
+  const storesJson = await cerebrusHandler.getAllStores();
+  // @ts-ignore
   const chainId = storesJson["Root"]["ChainId"][0];
+  // @ts-ignore
   const subChainsIds = storesJson["Root"]["SubChains"][0]["SubChain"][0][
-  "Stores"
+    "Stores"
   ][0]["Store"]
     .map((storeObj: { [key: string]: any }) => storeObj.StoreId[0])
     .map((storeId: string) =>
@@ -25,7 +25,7 @@ const main = async () => {
     chainId,
     subChainsIds[0]
   );
-  console.log("for chinId: ", subChainsIds[0], " ", data);
+  console.log(data);
   console.log("done!");
 };
 

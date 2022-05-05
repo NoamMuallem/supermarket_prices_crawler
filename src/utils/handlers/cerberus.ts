@@ -48,12 +48,11 @@ export default class CerberusHandler extends Handler {
     await this.getToHomescreen(this.page);
     const searchTerm = `PriceFull${chainId}-${subChainId}`;
     this.clearSearch(this.page);
-    console.log("now searching for: ", searchTerm);
     await this.insertToSearch(this.page, searchTerm);
     await this.selectBiggestLimit(this.page);
     await this.clickOnUnzip(this.page);
     await new Promise((resolve) => setTimeout(resolve, 2000));
-    const json = await this.getFirstXMLInTable(this.page, false);
+    const json = await this.getFirstXMLInTable(this.page, true);
     await this.page.close();
     this.page = undefined;
     return json;
@@ -99,7 +98,7 @@ export default class CerberusHandler extends Handler {
 
   private getFirstXMLInTable = async (
     page: PromiseValue<ReturnType<typeof this.browser.newPage>>,
-    isInXMLForm: boolean = true
+    isFile: boolean = false
   ): Promise<string> => {
     return new Promise((resolve) => {
       setTimeout(async () => {
@@ -111,7 +110,14 @@ export default class CerberusHandler extends Handler {
           );
         });
         const xmlPage = await this.browser.newPage();
-        if (isInXMLForm) {
+        if (isFile) {
+          const productsXml = await getJsonFromGzDownloadLink(
+            newPage.toString(),
+            this.page!
+          );
+          const json = await this.parseXML(productsXml);
+          resolve(json);
+        } else {
           await xmlPage.goto(newPage.toString(), { waitUntil: "load" });
           await new Promise((resolve) => setTimeout(resolve, 2000));
           const xml = await xmlPage.evaluate(
@@ -120,8 +126,6 @@ export default class CerberusHandler extends Handler {
           );
           const json = await this.parseXML(xml);
           resolve(json);
-        } else {
-          getJsonFromGzDownloadLink(newPage.toString(), this.page!);
         }
         xmlPage.close();
       }, 1000);
