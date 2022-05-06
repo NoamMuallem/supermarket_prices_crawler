@@ -40,7 +40,6 @@ async function downloadFile(
   page: puppeteer.Page,
   directoryPath: string
 ) {
-  console.log(directoryPath);
   // @ts-ignore
   await page._client.send("Page.setDownloadBehavior", {
     behavior: "allow",
@@ -51,7 +50,6 @@ async function downloadFile(
     createDirectoryIfNotExisting(directoryPath);
     await page.goto(url);
   } catch (e) {
-    console.log(e.toString());
   }
 }
 
