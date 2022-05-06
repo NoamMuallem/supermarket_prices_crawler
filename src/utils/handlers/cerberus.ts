@@ -24,27 +24,30 @@ export default class CerberusHandler extends Handler {
     this.password = password;
   }
 
-  async getAllStores(): Promise<string> {
+  async getAllStores(): Promise<{ [key: string]: any } | null> {
     this.page = await this.browser.newPage();
     await this.getToHomescreen(this.page);
     await this.insertToSearch(this.page, "stores");
     await this.selectBiggestLimit(this.page);
     await this.clickOnUnzip(this.page);
-    const json = await this.getFirstXMLInTable(this.page);
-    await this.page.goBack();
-    await this.page.close();
-    this.page = undefined;
-    return json;
+    try {
+      const json = await this.getFirstXMLInTable(this.page);
+      await this.page.goBack();
+      await this.page.close();
+      this.page = undefined;
+      return json;
+    } catch (e) {
+      return null;
+    }
   }
 
   async getAllProductsInStore(
     chainId: string,
     subChainId: string
-  ): Promise<string> {
+  ): Promise<{ [key: string]: any }> {
     if (!this.page) {
       this.page = await this.browser.newPage();
     }
-    this.page = await this.browser.newPage();
     await this.getToHomescreen(this.page);
     const searchTerm = `PriceFull${chainId}-${subChainId}`;
     this.clearSearch(this.page);
@@ -53,10 +56,28 @@ export default class CerberusHandler extends Handler {
     await this.clickOnUnzip(this.page);
     await new Promise((resolve) => setTimeout(resolve, 2000));
     const json = await this.getFirstXMLInTable(this.page, true);
-    await this.page.close();
-    this.page = undefined;
-    return json;
+    const fomattedJson = this.formatProductsJson(json);
+    //await this.page.close();
+    //this.page = undefined;
+    return fomattedJson;
   }
+
+  private formatProductsJson = (json: {
+    [key: string]: any;
+  }): { [key: string]: any } => {
+    const formattedJson: { [key: string]: any } = {};
+    formattedJson["ChainId"] = json["Root"]["ChainId"][0];
+    formattedJson["StoreId"] = json["Root"]["StoreId"][0];
+    formattedJson["Items"] = [];
+    json["Root"]["Items"][0]["Item"].forEach((Item: { [key: string]: any }) => {
+      const formattedItem: { [key: string]: any } = {};
+      formattedItem["code"] = Item["ItemCode"][0];
+      formattedItem["name"] = Item["ItemName"][0];
+      formattedItem["price"] = Item["ItemPrice"][0];
+      formattedJson["Items"].push(formattedItem);
+    });
+    return formattedJson;
+  };
 
   private getToHomescreen = async (
     page: PromiseValue<ReturnType<typeof this.browser.newPage>>
@@ -99,35 +120,46 @@ export default class CerberusHandler extends Handler {
   private getFirstXMLInTable = async (
     page: PromiseValue<ReturnType<typeof this.browser.newPage>>,
     isFile: boolean = false
-  ): Promise<string> => {
-    return new Promise((resolve) => {
+  ): Promise<{ [key: string]: any }> => {
+    return new Promise((resolve, reject) => {
       setTimeout(async () => {
         await page.waitForSelector("td");
-        const newPage = await page.evaluate(() => {
-          return <HTMLAnchorElement>(
-            // @ts-ignore: type element does have href on it!
-            document.querySelectorAll("td > a")[0].href
-          );
-        });
-        const xmlPage = await this.browser.newPage();
-        if (isFile) {
-          const productsXml = await getJsonFromGzDownloadLink(
-            newPage.toString(),
-            this.page!
-          );
-          const json = await this.parseXML(productsXml);
-          resolve(json);
-        } else {
-          await xmlPage.goto(newPage.toString(), { waitUntil: "load" });
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-          const xml = await xmlPage.evaluate(
-            // @ts-ignore: type element does have href on it!
-            () => document.querySelector("#folder0")!.innerText
-          );
-          const json = await this.parseXML(xml);
-          resolve(json);
+        let newPage;
+        try {
+          newPage = await page.evaluate(() => {
+            return <HTMLAnchorElement>(
+              // @ts-ignore: type element does have href on it!
+              document.querySelectorAll("td > a")[0].href
+            );
+          });
+        } catch (e) {
+          //no products for that store id are existing...
+          reject();
         }
-        xmlPage.close();
+        if (newPage) {
+          const xmlPage = await this.browser.newPage();
+          if (isFile) {
+            const productsXml = await getJsonFromGzDownloadLink(
+              newPage.toString(),
+              this.page!
+            );
+            const json = await this.parseXML(productsXml);
+            xmlPage.close();
+            resolve(json);
+          } else {
+            await xmlPage.goto(newPage.toString(), { waitUntil: "load" });
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+            const xml = await xmlPage.evaluate(
+              // @ts-ignore: type element does have href on it!
+              () => document.querySelector("#folder0")!.innerText
+            );
+            const json = await this.parseXML(xml);
+            xmlPage.close();
+            resolve(json);
+          }
+        } else {
+          reject();
+        }
       }, 1000);
     });
   };

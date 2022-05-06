@@ -21,11 +21,17 @@ const main = async () => {
         ? "0" + storeId
         : storeId
     );
-  const data = await cerebrusHandler.getAllProductsInStore(
-    chainId,
-    subChainsIds[0]
-  );
-  console.log(data);
+
+  for (let index = 8; index < subChainsIds.length; index++) {
+    const data = await cerebrusHandler.getAllProductsInStore(
+      chainId,
+      subChainsIds[index]
+    );
+    if (data) {
+      console.log(data);
+    }
+  }
+
   console.log("done!");
 };
 

@@ -14,7 +14,7 @@ export default class Handler {
     this.browser = browser;
   }
 
-  async getAllStores(): Promise<string> {
+  async getAllStores(): Promise<{ [key: string]: any } | null> {
     throw new Error("Method 'say()' must be implemented.");
   }
 
@@ -22,7 +22,7 @@ export default class Handler {
     throw new Error("Method 'getFullPrises()' must be implemented.");
   }
 
-  protected parseXML(xml: string): Promise<string> {
+  protected parseXML(xml: string): Promise<{ [key: string]: any }> {
     return new Promise((resolve, reject) => {
       xml2js.parseString(
         xml,
