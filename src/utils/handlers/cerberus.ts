@@ -38,8 +38,9 @@ export default class CerberusHandler extends Handler {
       await this.page.goBack();
       await this.page.close();
       this.page = undefined;
+      const formattedJson = this.formatStoresJson(json);
       if (cb) {
-        cb(json);
+        cb(formattedJson);
       }
       return json;
     } catch (e) {
@@ -105,6 +106,39 @@ export default class CerberusHandler extends Handler {
     const fomattedJson = this.formatProductsJson(json);
     return fomattedJson;
   }
+
+  private formatStoresJson = (json: {
+    [key: string]: any;
+  }): { [key: string]: any } => {
+    const formattedJson: { [key: string]: any } = {};
+    let Stores: { [key: string]: any };
+    try {
+      formattedJson["ChainId"] = json["Root"]["ChainId"][0];
+      formattedJson["ChainId"] = json["Root"]["ChainName"][0];
+      Stores =
+        json["Root"]["SubChains"][0]["SubChain"][0]["Stores"][0]["Store"];
+    } catch (e) {
+      formattedJson["ChainId"] = json["root"]["ChainId"][0];
+      formattedJson["ChainId"] = json["root"]["ChainName"][0];
+      Stores =
+        json["root"]["SubChains"][0]["SubChain"][0]["Stores"][0]["Store"];
+    }
+    formattedJson["Stores"] = [];
+    Stores.forEach((store: { [key: string]: any }) => {
+      const formattedStore: { [key: string]: any } = {};
+      const storeId = store["StoreId"][0];
+      formattedStore["StoreId"] =
+        storeId.length === 1
+          ? "00" + storeId
+          : storeId.length === 2
+          ? "0" + storeId
+          : storeId;
+      formattedStore["Address"] = store["Address"][0];
+      formattedStore["City"] = store["City"][0];
+      formattedJson["Stores"].push(formattedStore);
+    });
+    return formattedJson;
+  };
 
   private formatProductsJson = (json: {
     [key: string]: any;
