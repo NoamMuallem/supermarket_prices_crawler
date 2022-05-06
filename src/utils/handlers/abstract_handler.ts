@@ -14,7 +14,21 @@ export default class Handler {
     this.browser = browser;
   }
 
-  async getAllStores(): Promise<{ [key: string]: any } | null> {
+  async getAllStores(
+    // @ts-ignore
+    cb: Function | undefined
+  ): Promise<{ [key: string]: any } | null> {
+    throw new Error("Method 'say()' must be implemented.");
+  }
+
+  async getAllProductsInAllStores(
+    // @ts-ignore
+    chainJsonCb: Function | undefined,
+    // @ts-ignore
+    singleStoreJsonCb: Function | undefined,
+    // @ts-ignore
+    chainName: string | undefined
+  ) {
     throw new Error("Method 'say()' must be implemented.");
   }
 

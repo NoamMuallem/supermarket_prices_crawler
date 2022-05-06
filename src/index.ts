@@ -1,37 +1,38 @@
-import CerberusHandler from "./utils/handlers/cerberus";
+import Handler from "./utils/handlers/abstract_handler";
+import cerebrusHandler from "./utils/handlers/cerberus";
+import { chainsHandlersEnum } from "./enums";
 import ppt from "puppeteer";
-require("util").inspect.defaultOptions.depth = null;
+import chainsConfig from "./utils/chains.js";
 
 const main = async () => {
   //set up puppeteer
   const browser = await ppt.launch({ headless: false });
-  let cerebrusHandler = new CerberusHandler("HaziHinam", "", browser);
-  const storesJson = await cerebrusHandler.getAllStores();
-  // @ts-ignore
-  const chainId = storesJson["Root"]["ChainId"][0];
-  // @ts-ignore
-  const subChainsIds = storesJson["Root"]["SubChains"][0]["SubChain"][0][
-    "Stores"
-  ][0]["Store"]
-    .map((storeObj: { [key: string]: any }) => storeObj.StoreId[0])
-    .map((storeId: string) =>
-      storeId.length === 1
-        ? "00" + storeId
-        : storeId.length === 2
-        ? "0" + storeId
-        : storeId
-    );
-
-  for (let index = 8; index < subChainsIds.length; index++) {
-    const data = await cerebrusHandler.getAllProductsInStore(
-      chainId,
-      subChainsIds[index]
-    );
-    if (data) {
-      console.log(data);
+  //set up copping data from stores:
+  for (const [chainName, chainConfig] of Object.entries(chainsConfig)) {
+    let handler: Handler;
+    switch (chainConfig.hostType) {
+      case chainsHandlersEnum.cerberus:
+        handler = new cerebrusHandler(
+          chainConfig.signin.username,
+          chainConfig.signin.password,
+          browser
+        );
+        break;
+      default:
+        handler = new cerebrusHandler(
+          chainConfig.signin.username,
+          chainConfig.signin.password,
+          browser
+        );
+        break;
     }
+    await handler.getAllProductsInAllStores(
+      (storeItemsJson: { [key: string]: any }) => console.log(storeItemsJson),
+      (storeItemsJson: { [key: string]: any }) => console.log(storeItemsJson),
+      chainName
+    );
   }
-
+  //let cerebrusHandler = new CerberusHandler("HaziHinam", "", browser);
   console.log("done!");
 };
 

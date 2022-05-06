@@ -2,6 +2,7 @@ import Handler from "./abstract_handler";
 import puppeteer from "puppeteer";
 import { PromiseValue } from "type-fest";
 import { getJsonFromGzDownloadLink } from "../../getJsonFromGzipDownloadLink";
+require("util").inspect.defaultOptions.depth = null;
 
 /**
  * CerberusHandler.
@@ -24,7 +25,9 @@ export default class CerberusHandler extends Handler {
     this.password = password;
   }
 
-  async getAllStores(): Promise<{ [key: string]: any } | null> {
+  async getAllStores(
+    cb: Function | undefined
+  ): Promise<{ [key: string]: any } | null> {
     this.page = await this.browser.newPage();
     await this.getToHomescreen(this.page);
     await this.insertToSearch(this.page, "stores");
@@ -35,9 +38,52 @@ export default class CerberusHandler extends Handler {
       await this.page.goBack();
       await this.page.close();
       this.page = undefined;
+      if (cb) {
+        cb(json);
+      }
       return json;
     } catch (e) {
       return null;
+    }
+  }
+
+  async getAllProductsInAllStores(
+    chainJsonCb: Function | undefined,
+    singleStoreJsonCb: Function | undefined,
+    chainName: string | undefined
+  ) {
+    console.log("now doing: ", chainName);
+    const storesJson = await this.getAllStores(
+      (json: { [key: string]: any } | null) => {
+        if (json && chainJsonCb) {
+          chainJsonCb(json);
+        }
+      }
+    );
+    // @ts-ignore
+    const chainId = storesJson["Root"]["ChainId"][0];
+    // @ts-ignore
+    const subChainsIds = storesJson["Root"]["SubChains"][0]["SubChain"][0][
+      "Stores"
+    ][0]["Store"]
+      .map((storeObj: { [key: string]: any }) => storeObj.StoreId[0])
+      .map((storeId: string) =>
+        storeId.length === 1
+          ? "00" + storeId
+          : storeId.length === 2
+          ? "0" + storeId
+          : storeId
+      );
+
+    for (let index = 0; index < subChainsIds.length; index++) {
+      console.log(index + "/" + subChainsIds.length);
+      const data = await this.getAllProductsInStore(
+        chainId,
+        subChainsIds[index]
+      );
+      if (data && singleStoreJsonCb) {
+        singleStoreJsonCb(data);
+      }
     }
   }
 
@@ -57,8 +103,6 @@ export default class CerberusHandler extends Handler {
     await new Promise((resolve) => setTimeout(resolve, 2000));
     const json = await this.getFirstXMLInTable(this.page, true);
     const fomattedJson = this.formatProductsJson(json);
-    //await this.page.close();
-    //this.page = undefined;
     return fomattedJson;
   }
 
@@ -66,10 +110,18 @@ export default class CerberusHandler extends Handler {
     [key: string]: any;
   }): { [key: string]: any } => {
     const formattedJson: { [key: string]: any } = {};
-    formattedJson["ChainId"] = json["Root"]["ChainId"][0];
-    formattedJson["StoreId"] = json["Root"]["StoreId"][0];
+    let Items: { [key: string]: any };
+    try {
+      formattedJson["ChainId"] = json["Root"]["ChainId"][0];
+      formattedJson["StoreId"] = json["Root"]["StoreId"][0];
+      Items = json["Root"]["Items"][0]["Item"];
+    } catch (e) {
+      formattedJson["ChainId"] = json["root"]["ChainId"][0];
+      formattedJson["StoreId"] = json["root"]["StoreId"][0];
+      Items = json["root"]["Items"][0]["Item"];
+    }
     formattedJson["Items"] = [];
-    json["Root"]["Items"][0]["Item"].forEach((Item: { [key: string]: any }) => {
+    Items.forEach((Item: { [key: string]: any }) => {
       const formattedItem: { [key: string]: any } = {};
       formattedItem["code"] = Item["ItemCode"][0];
       formattedItem["name"] = Item["ItemName"][0];
