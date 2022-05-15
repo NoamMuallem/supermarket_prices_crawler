@@ -11,6 +11,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "axios": "^0.27.2",
+    "dotenv": "^16.0.1",
     "puppeteer": "^10.2.0",
     "ts-node": "^10.2.1",
     "xml2js": "^0.4.23"
