@@ -2,6 +2,7 @@ import Handler from "./abstract_handler";
 import puppeteer from "puppeteer";
 import { PromiseValue } from "type-fest";
 import { getJsonFromGzDownloadLink } from "../../getJsonFromGzipDownloadLink";
+import axios from "axios";
 require("util").inspect.defaultOptions.depth = null;
 
 /**
@@ -38,11 +39,11 @@ export default class CerberusHandler extends Handler {
       await this.page.goBack();
       await this.page.close();
       this.page = undefined;
-      const formattedJson = this.formatStoresJson(json);
+      const formattedJson = await this.formatStoresJson(json);
       if (cb) {
         cb(formattedJson);
       }
-      return json;
+      return formattedJson;
     } catch (e) {
       return null;
     }
@@ -62,28 +63,24 @@ export default class CerberusHandler extends Handler {
       }
     );
     // @ts-ignore
-    const chainId = storesJson["Root"]["ChainId"][0];
+    const chainId = storesJson.ChainId;
     // @ts-ignore
-    const subChainsIds = storesJson["Root"]["SubChains"][0]["SubChain"][0][
-      "Stores"
-    ][0]["Store"]
-      .map((storeObj: { [key: string]: any }) => storeObj.StoreId[0])
-      .map((storeId: string) =>
-        storeId.length === 1
-          ? "00" + storeId
-          : storeId.length === 2
-          ? "0" + storeId
-          : storeId
-      );
+    const subChainsIds = storesJson.Stores.map(
+      (storeObj: { [key: string]: any }) => storeObj.StoreId
+    );
 
     for (let index = 0; index < subChainsIds.length; index++) {
       console.log(index + "/" + subChainsIds.length);
-      const data = await this.getAllProductsInStore(
-        chainId,
-        subChainsIds[index]
-      );
-      if (data && singleStoreJsonCb) {
-        singleStoreJsonCb(data);
+      try {
+        const data = await this.getAllProductsInStore(
+          chainId,
+          subChainsIds[index]
+        );
+        if (data && singleStoreJsonCb) {
+          singleStoreJsonCb(data, subChainsIds[index]);
+        }
+      } catch (e) {
+        console.log("failed to copy storeId:", subChainsIds[index]);
       }
     }
   }
@@ -107,36 +104,80 @@ export default class CerberusHandler extends Handler {
     return fomattedJson;
   }
 
-  private formatStoresJson = (json: {
+  private formatStoresJson = async (json: {
     [key: string]: any;
-  }): { [key: string]: any } => {
+  }): Promise<{ [key: string]: any }> => {
     const formattedJson: { [key: string]: any } = {};
     let Stores: { [key: string]: any };
     try {
-      formattedJson["ChainId"] = json["Root"]["ChainId"][0];
-      formattedJson["ChainId"] = json["Root"]["ChainName"][0];
+      formattedJson["Retailer"] = {
+        ChainId: json["Root"]["ChainId"][0],
+        ChainName: json["Root"]["ChainName"][0],
+      };
       Stores =
         json["Root"]["SubChains"][0]["SubChain"][0]["Stores"][0]["Store"];
     } catch (e) {
-      formattedJson["ChainId"] = json["root"]["ChainId"][0];
-      formattedJson["ChainId"] = json["root"]["ChainName"][0];
+      formattedJson["Retailer"] = {
+        ChainId: json["root"]["ChainId"][0],
+        ChainName: json["root"]["ChainName"][0],
+      };
       Stores =
         json["root"]["SubChains"][0]["SubChain"][0]["Stores"][0]["Store"];
     }
+    formattedJson["XmlSourceUrl"] = json["XmlSourceUrl"];
     formattedJson["Stores"] = [];
-    Stores.forEach((store: { [key: string]: any }) => {
-      const formattedStore: { [key: string]: any } = {};
-      const storeId = store["StoreId"][0];
-      formattedStore["StoreId"] =
-        storeId.length === 1
-          ? "00" + storeId
-          : storeId.length === 2
-          ? "0" + storeId
-          : storeId;
-      formattedStore["Address"] = store["Address"][0];
-      formattedStore["City"] = store["City"][0];
-      formattedJson["Stores"].push(formattedStore);
-    });
+
+    const storePromise = (store: { [key: string]: any }) =>
+      new Promise<void>(async (resolve, reject) => {
+        const formattedStore: { [key: string]: any } = {};
+        const storeId = store["StoreId"][0];
+        formattedStore["StoreId"] =
+          storeId.length === 1
+            ? "00" + storeId
+            : storeId.length === 2
+            ? "0" + storeId
+            : storeId;
+        formattedStore["Address"] = store["Address"][0];
+        formattedStore["City"] = store["City"][0];
+        if (
+          !(formattedStore["Address"] === "unknown") &&
+          !(formattedStore["City"] === "unknown")
+        ) {
+          try {
+            //get store geolocation from addres
+            const doesAddressHaveCityName = formattedStore["Address"]
+              .toString()
+              .includes(formattedStore["City"]);
+            const address = doesAddressHaveCityName
+              ? formattedStore["Address"]
+              : `${formattedStore["Address"]} ${formattedStore["City"]}`;
+
+            const positionstackRes = await axios
+              .get(
+                encodeURI(
+                  `http://api.positionstack.com/v1/forward?access_key=1f9204714a5d1d1c16f51c2536db23ef&query=${address}`
+                )
+              )
+              .then((res) => res.data);
+            formattedStore["location"] = {
+              latitude: positionstackRes?.data[0]?.latitude,
+              longitude: positionstackRes?.data[0]?.longitude,
+            };
+            formattedJson["Stores"].push(formattedStore);
+            resolve();
+          } catch (e) {
+            console.log("failed to find location");
+            reject();
+          }
+        } else {
+          reject();
+        }
+      });
+
+    const promiseArray: Array<Promise<void>> = Stores.map(
+      (store: { [key: string]: any }) => storePromise(store)
+    );
+    await Promise.allSettled(promiseArray);
     return formattedJson;
   };
 
@@ -154,6 +195,7 @@ export default class CerberusHandler extends Handler {
       formattedJson["StoreId"] = json["root"]["StoreId"][0];
       Items = json["root"]["Items"][0]["Item"];
     }
+    formattedJson["XmlSourceUrl"] = json["XmlSourceUrl"];
     formattedJson["Items"] = [];
     Items.forEach((Item: { [key: string]: any }) => {
       const formattedItem: { [key: string]: any } = {};
@@ -230,6 +272,7 @@ export default class CerberusHandler extends Handler {
               this.page!
             );
             const json = await this.parseXML(productsXml);
+            json["XmlSourceUrl"] = newPage.toString();
             xmlPage.close();
             resolve(json);
           } else {
