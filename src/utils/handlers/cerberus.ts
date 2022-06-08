@@ -155,7 +155,7 @@ export default class CerberusHandler extends Handler {
             const positionstackRes = await axios
               .get(
                 encodeURI(
-                  `http://api.positionstack.com/v1/forward?access_key=1f9204714a5d1d1c16f51c2536db23ef&query=${address}`
+                  `http://api.positionstack.com/v1/forward?access_key=key&query=${address}`
                 )
               )
               .then((res) => res.data);
